@@ -106,7 +106,8 @@ elif [ $PLATFORM_EXTENSION_TYPE = "docker" ]; then
 				
 				cd service/docker
 				
-				docker-compose -f docker-compose.yml up -d
+				chmod +x docker-compose.sh
+				./docker-compose.sh
 		fi
 		
 	fi
