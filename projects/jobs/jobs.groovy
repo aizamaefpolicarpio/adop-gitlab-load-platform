@@ -33,6 +33,8 @@ loadCartridgeJob.with{
     environmentVariables {
         env('WORKSPACE_NAME',workspaceFolderName)
         env('PROJECT_NAME',projectFolderName)
+        env('GITLAB_HTTP_URL',GITLAB_HTTP_URL)
+        env('GITLAB_HOST_NAME',GITLAB_HOST_NAME)
     }
     wrappers {
         preBuildCleanup()

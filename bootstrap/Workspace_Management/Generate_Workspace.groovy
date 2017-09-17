@@ -24,6 +24,8 @@ generateWorkspaceJob.with {
 				env('OU_GROUPS','ou=groups')
 				env('OU_PEOPLE','ou=people')
 				env('OUTPUT_FILE','output.ldif')
+				env('GITLAB_HTTP_URL',GITLAB_HTTP_URL)
+				env('GITLAB_HOST_NAME',GITLAB_HOST_NAME)
 			}
 			credentialsBinding {
 				usernamePassword("LDAP_ADMIN_USER", "LDAP_ADMIN_PASSWORD", "adop-ldap-admin")
