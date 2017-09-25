@@ -9,10 +9,10 @@ def generateWorkspaceJob = freeStyleJob(WorkspaceManagementFolderName + "/Genera
 // Setup generateBuildPipelineJobs
 generateWorkspaceJob.with {
 		parameters {
-			stringParam('WORKSPACE_NAME', '','')
-			stringParam("ADMIN_USERS","gitlabuser@accenture.com","The list of users' email addresses that should be setup initially as admin. They will have full access to all jobs within the project.")
-			stringParam("DEVELOPER_USERS","gitlabuser@accenture.com","The list of users' email addresses that should be setup initially as developers. They will have full access to all non-admin jobs within the project.")
-			stringParam("VIEWER_USERS","gitlabuser@accenture.com","The list of users' email addresses that should be setup initially as viewers. They will have read-only access to all non-admin jobs within the project.")
+			stringParam('WORKSPACE_NAME', '','The name of the workspace to be generated. It will also be created as a Gitlab group named as WORKSPACE_NAME')
+			stringParam("ADMIN_USERS","group_admin@accenture.com","The list of users' email addresses that should be setup initially as admin. They will have full access to all jobs within the project. They will have a Master role in the Gitlab group named as the WORKSPACE_NAME.")
+			stringParam("DEVELOPER_USERS","group_dev@accenture.com","The list of users' email addresses that should be setup initially as developers. They will have full access to all non-admin jobs within the project. They will have a Developer role in the Gitlab group named as the WORKSPACE_NAME.")
+			stringParam("VIEWER_USERS","group_viewer@accenture.com","The list of users' email addresses that should be setup initially as viewers. They will have read-only access to all non-admin jobs within the project. They will have a Reporter role in the Gitlab group named as the WORKSPACE_NAME.")
 		}
 		label("ldap")
 		wrappers {
@@ -57,11 +57,8 @@ generateWorkspaceJob.with {
 				''')
 				shell('''
 # LDAP
-chmod +x ${WORKSPACE}/common/ldap/*.sh
-chmod +x ${WORKSPACE}/common/ldap/lib/*.sh
-chmod +x ${WORKSPACE}/common/gitlab/*.sh
-chmod +x ${WORKSPACE}/common/gitlab/group/*.sh
-				
+chmod +x $(find . -type f -name "*.sh")
+
 ${WORKSPACE}/common/ldap/generate_role.sh -r "admin" -n "${WORKSPACE_NAME}" -d "${DC}" -g "${OU_GROUPS}" -p "${OU_PEOPLE}" -u "${ADMIN_USERS}" -f "${OUTPUT_FILE}" -w "${WORKSPACE}"
 ${WORKSPACE}/common/ldap/generate_role.sh -r "developer" -n "${WORKSPACE_NAME}" -d "${DC}" -g "${OU_GROUPS}" -p "${OU_PEOPLE}" -u "${DEVELOPER_USERS}" -f "${OUTPUT_FILE}" -w "${WORKSPACE}"
 ${WORKSPACE}/common/ldap/generate_role.sh -r "viewer" -n "${WORKSPACE_NAME}" -d "${DC}" -g "${OU_GROUPS}" -p "${OU_PEOPLE}" -u "${VIEWER_USERS}" -f "${OUTPUT_FILE}" -w "${WORKSPACE}"
@@ -75,33 +72,60 @@ DEVELOPER_USERS=$(echo ${DEVELOPER_USERS} | tr ',' ' ')
 VIEWER_USERS=$(echo ${VIEWER_USERS} | tr ',' ' ')
 					
 # GitLab
+
+# install jq
+${WORKSPACE}/common/utils/install_jq.sh
+export PATH="$PATH:/usr/local/bin"
+
+export PATH="$PATH:/usr/local/bin/"
+
 for user in $ADMIN_USERS $DEVELOPER_USERS $VIEWER_USERS
 do
-		username=$(echo ${user} | cut -d'@' -f1)
-		${WORKSPACE}/common/gitlab/create_user.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -u "${username}" -p "${username}" -e "${user}" 
-done
+	username=$(echo ${user} | cut -d'@' -f1)
+	${WORKSPACE}/common/gitlab/create_user.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -u "${username}" -p "${username}" -e "${user}" 
+done								
 
-# create new group			
+# create a new group
 ${WORKSPACE}/common/gitlab/create_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -w "${WORKSPACE_NAME}"
-										
-# get the id of the group
-gid="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v3/groups/${WORKSPACE_NAME}" | python -c "import json,sys;obj=json.load(sys.stdin);print obj['id'];")"
-					
-# add the users to the group as owners
-for owner in $ADMIN_USERS
-do
-		ownername=$(echo ${owner} | cut -d'@' -f1)
-		uid="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v3/users?username=${ownername}" | python -c "import json,sys;obj=json.load(sys.stdin);print obj[0]['id'];")"
-		${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t $GITLAB_TOKEN -i $gid -u $uid -a 50
-done
 
-# add the users to the group as guests
-for guest in $DEVELOPER_USERS $VIEWER_USERS
-do
-		guestname=$(echo ${guest} | cut -d'@' -f1)
-		uid="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v3/users?username=${guestname}" | python -c "import json,sys;obj=json.load(sys.stdin);print obj[0]['id'];")"
-		${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t $GITLAB_TOKEN -i $gid -u $uid -a 10
-done''')
+sleep 5
+GITLAB_GROUP_ID="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/groups/${WORKSPACE_NAME}" | jq '.id')"
+
+if [[ $GITLAB_GROUP_ID -eq "null" ]]; then
+	echo "${WORKSPACE_NAME} group is not created in gitlab."
+    exit 1
+fi
+
+# add the users to the group as owners
+if [[ ! -z $ADMIN_USERS ]]; then
+  for user in $ADMIN_USERS
+  do
+      USERNAME=$(echo ${user} | cut -d'@' -f1)
+      USER_ID=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/users?username=${USERNAME}" | jq '.[0].id')
+      ${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -i "${GITLAB_GROUP_ID}" -u "${USER_ID}" -a 40
+  done
+fi
+
+# add the users to the group as developers
+if [[ ! -z $DEVELOPER_USERS ]]; then
+  for user in $DEVELOPER_USERS
+  do
+      USERNAME=$(echo ${user} | cut -d'@' -f1)
+      USER_ID=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/users?username=${USERNAME}" | jq '.[0].id')
+      ${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -i "${GITLAB_GROUP_ID}" -u "${USER_ID}" -a 30
+  done
+fi
+
+# add the users to the group as reporter
+if [[ ! -z $VIEWER_USERS ]]; then
+  for user in $VIEWER_USERS
+  do
+      USERNAME=$(echo ${user} | cut -d'@' -f1)
+      USER_ID=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/users?username=${USERNAME}" | jq '.[0].id')
+      ${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -i "${GITLAB_GROUP_ID}" -u "${USER_ID}" -a 20
+  done
+fi
+''')
 				dsl {
 					external("workspaces/jobs/**/*.groovy")
 				}
