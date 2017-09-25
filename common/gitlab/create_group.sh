@@ -39,7 +39,7 @@ echo "Creating group: ${groupname}"
 count=1
 until [ $count -ge ${MAX_RETRY} ]
 do
-  ret=$(curl --header "PRIVATE-TOKEN: $token" -X POST "${gitlab_url}api/v3/groups?&name=${groupname}&path=${groupname}")
+  ret=$(curl --header "PRIVATE-TOKEN: $token" -X POST "${gitlab_url}api/v4/groups?&name=${groupname}&path=${groupname}")
   [[ ${ret} -eq 302  ]] && break
   count=$[$count+1]
   echo "Unable to create group ${username}, response code ${ret}, retry ... ${count}"
