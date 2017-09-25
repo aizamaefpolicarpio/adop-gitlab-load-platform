@@ -1,7 +1,4 @@
 // Constants
-// def gerritBaseUrl = "ssh://jenkins@gerrit:29418"
-// def cartridgeBaseUrl = gerritBaseUrl + "/cartridges"
-// def platformToolsGitUrl = gerritBaseUrl + "/platform-management"
 def platformToolsGitURL = "git@${GITLAB_HOST_NAME}:root/platform-management.git"
 
 // Folders
@@ -12,15 +9,6 @@ def projectFolder = folder(projectFolderName)
 
 def cartridgeManagementFolderName= projectFolderName + "/Cartridge_Management"
 def cartridgeManagementFolder = folder(cartridgeManagementFolderName) { displayName('Cartridge Management') }
-
-// Cartridge List
-//def cartridge_list = []
-//readFileFromWorkspace("${WORKSPACE}/cartridges.txt").eachLine { line ->
-//    cartridge_repo_name = line.tokenize("/").last()
-//    local_cartridge_url = cartridgeBaseUrl + "/" + cartridge_repo_name
-//    cartridge_list << local_cartridge_url
-//}
-
 
 // Jobs
 def loadCartridgeJob = freeStyleJob(cartridgeManagementFolderName + "/Load_Cartridge")
