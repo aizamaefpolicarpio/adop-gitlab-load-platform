@@ -34,6 +34,7 @@ generateProjectJob.with{
             env('OUTPUT_FILE','output.ldif')
             env('GITLAB_HTTP_URL',GITLAB_HTTP_URL)
             env('GITLAB_HOST_NAME',GITLAB_HOST_NAME)
+            env('PLATFORM_GIT_REF',PLATFORM_GIT_REF)
         }
         credentialsBinding {
             usernamePassword("LDAP_ADMIN_USER", "LDAP_ADMIN_PASSWORD", "adop-ldap-admin")
@@ -52,7 +53,7 @@ generateProjectJob.with{
                     url(platformToolsGitURL)
                     credentials("adop-jenkins-master")
             }	
-            branch('*/master')
+            branch("*/${PLATFORM_GIT_REF}")
         }
 	}
     steps {

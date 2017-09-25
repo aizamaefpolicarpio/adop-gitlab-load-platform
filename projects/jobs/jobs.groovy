@@ -145,7 +145,7 @@ fileList.each {
                 url(platformToolsGitURL)
                 credentials("adop-jenkins-master")
             }
-            branch("*/master")
+            branch("*/${PLATFORM_GIT_REF}")
         }
     }
 }
