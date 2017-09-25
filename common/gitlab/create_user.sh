@@ -45,7 +45,7 @@ echo "Creating user: ${username}"
 count=1
 until [ $count -ge ${MAX_RETRY} ]
 do
-  ret=$(curl --header "PRIVATE-TOKEN: ${token}" -X POST "${gitlab_url}api/v3/users?email=${email}&name=${username}&username=${username}&password=${password}&provider=ldap&extern_uid=cn=${username},ou=people,dc=ldap,dc=adop,dc=com")
+  ret=$(curl --header "PRIVATE-TOKEN: ${token}" -X POST "${gitlab_url}api/v4/users?email=${email}&name=${username}&username=${username}&password=${password}&provider=ldap&extern_uid=cn=${username},${LDAP_USER_SEARCH_BASE},${LDAP_ROOTDN}")
   [[ ${ret} -eq 302  ]] && break
   count=$[$count+1]
   echo "Unable to create user ${username}, response code ${ret}, retry ... ${count}"
