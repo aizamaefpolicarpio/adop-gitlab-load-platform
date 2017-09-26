@@ -76,9 +76,7 @@ VIEWER_USERS=$(echo ${VIEWER_USERS} | tr ',' ' ')
 
 # install jq
 ${WORKSPACE}/common/utils/install_jq.sh
-export PATH="$PATH:/usr/local/bin"
-
-export PATH="$PATH:/usr/local/bin/"
+export PATH="$PATH:$HOME/bin"
 
 for user in $ADMIN_USERS $DEVELOPER_USERS $VIEWER_USERS
 do
