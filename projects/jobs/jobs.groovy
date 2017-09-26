@@ -38,20 +38,22 @@ loadCartridgeJob.with{
 	}
     steps {
         shell('''#!/bin/bash -ex
+#!/bin/bash -ex
 chmod +x ${WORKSPACE}/common/gitlab/create_project.sh
 
 # We trust everywhere
 #echo -e "#!/bin/sh 
-#exec ssh -o StrictHostKeyChecking=no "\$@" 
+#exec ssh -o StrictHostKeyChecking=no "$@" 
 #" > ${WORKSPACE}/custom_ssh
 #chmod +x ${WORKSPACE}/custom_ssh
 #export GIT_SSH="${WORKSPACE}/custom_ssh"        
-        
+
+# install jq
+${WORKSPACE}/common/utils/install_jq.sh
+export PATH="$PATH:$HOME/bin"
+
 # Clone Cartridge
 git clone ${CARTRIDGE_CLONE_URL} cartridge
-
-repo_namespace="${PROJECT_NAME}"
-permissions_repo="${repo_namespace}/permissions"
 
 # Create repositories
 mkdir ${WORKSPACE}/tmp
@@ -59,16 +61,17 @@ cd ${WORKSPACE}/tmp
 while read repo_url; do
     if [ ! -z "${repo_url}" ]; then
         repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
-        target_repo_name="${WORKSPACE_NAME}/${repo_name}"
+        target_repo_name="${PROJECT_NAME}/${repo_name}"
         
-        # get the namespace id of the group
-		gid="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/groups/${WORKSPACE_NAME}" | python -c "import json,sys;obj=json.load(sys.stdin);print obj['id'];")"
-				
-		# create new project				
-		${WORKSPACE}/common/gitlab/create_project.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -w "${gid}" -p "${repo_name}"	
+        # get the namespace id of the group/subgroup
+        GROUP_NAME=$(echo "${PROJECT_NAME}" | sed "s+/+%2f+g")
+		GITLAB_GROUP_ID="$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/groups/${GROUP_NAME}" | jq '.id')"				
+		
+        # create new project				
+		${WORKSPACE}/common/gitlab/create_project.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -w "${GITLAB_GROUP_ID}" -p "${repo_name}"	
         
         # Populate repository
-        git clone git@gitlab:"${target_repo_name}.git"
+        git clone git@${GITLAB_HOST_NAME}:"${target_repo_name}.git"
         cd "${repo_name}"
         git remote add source "${repo_url}"
         git fetch source
@@ -122,9 +125,9 @@ fileList.each {
 }
 ''')
         dsl {
+            ignoreExisting(false)
             external("cartridge/jenkins/jobs/dsl/**/*.groovy")
         }
-
     }
     scm {
         git {
