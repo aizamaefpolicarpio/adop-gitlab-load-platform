@@ -49,7 +49,7 @@ chmod +x ${WORKSPACE}/common/gitlab/create_project.sh
 #export GIT_SSH="${WORKSPACE}/custom_ssh"        
 
 # install jq
-${WORKSPACE}/common/utils/install_jq.sh
+sh ${WORKSPACE}/common/utils/install_jq.sh
 export PATH="$PATH:$HOME/bin"
 
 # Clone Cartridge
