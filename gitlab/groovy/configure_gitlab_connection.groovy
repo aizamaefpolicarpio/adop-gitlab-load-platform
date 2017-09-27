@@ -56,4 +56,5 @@ GitLabConnectionConfig descriptor = (GitLabConnectionConfig) instance.getDescrip
 GitLabConnection gitLabConnection = new GitLabConnection(gitlabConnectionName, gitlabHost, credentialsId, false, 10, 10)
 descriptor.getConnections().clear()
 descriptor.addConnection(gitLabConnection)
+descriptor.setUseAuthenticatedEndpoint(false)
 descriptor.save()
