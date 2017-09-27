@@ -22,7 +22,7 @@ def instance = Jenkins.getInstance()
 
 // Sonar
 // Source: http://pghalliday.com/jenkins/groovy/sonar/chef/configuration/management/2014/09/21/some-useful-jenkins-groovy-scripts.html
-println "--> Configuring SonarQube"
+println "--> Adding SonarQube installation ${sonarInstallationName}"
 def SonarGlobalConfiguration sonarConf = instance.getDescriptor(SonarGlobalConfiguration.class)
 
 def sonar = new SonarInstallation(
