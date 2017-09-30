@@ -8,55 +8,55 @@ def generateWorkspaceJob = freeStyleJob(WorkspaceManagementFolderName + "/Genera
  
 // Setup generateBuildPipelineJobs
 generateWorkspaceJob.with {
-		parameters {
-			stringParam('WORKSPACE_NAME', '','The name of the workspace to be generated. It will also be created as a Gitlab group named as WORKSPACE_NAME')
-			stringParam("ADMIN_USERS","group_admin@accenture.com","The list of users' email addresses that should be setup initially as admin. They will have full access to all jobs within the project. They will have a Master role in the Gitlab group named as the WORKSPACE_NAME.")
-			stringParam("DEVELOPER_USERS","group_dev@accenture.com","The list of users' email addresses that should be setup initially as developers. They will have full access to all non-admin jobs within the project. They will have a Developer role in the Gitlab group named as the WORKSPACE_NAME.")
-			stringParam("VIEWER_USERS","group_viewer@accenture.com","The list of users' email addresses that should be setup initially as viewers. They will have read-only access to all non-admin jobs within the project. They will have a Reporter role in the Gitlab group named as the WORKSPACE_NAME.")
+	parameters {
+		stringParam('WORKSPACE_NAME', '','The name of the workspace to be generated. It will also be created as a Gitlab group named as WORKSPACE_NAME')
+		stringParam("ADMIN_USERS","group_admin@accenture.com","The list of users' email addresses that should be setup initially as admin. They will have full access to all jobs within the project. They will have a Master role in the Gitlab group named as the WORKSPACE_NAME.")
+		stringParam("DEVELOPER_USERS","group_dev@accenture.com","The list of users' email addresses that should be setup initially as developers. They will have full access to all non-admin jobs within the project. They will have a Developer role in the Gitlab group named as the WORKSPACE_NAME.")
+		stringParam("VIEWER_USERS","group_viewer@accenture.com","The list of users' email addresses that should be setup initially as viewers. They will have read-only access to all non-admin jobs within the project. They will have a Reporter role in the Gitlab group named as the WORKSPACE_NAME.")
+	}
+	label("ldap")
+	wrappers {
+		preBuildCleanup()
+		injectPasswords()
+		maskPasswords()
+		environmentVariables {
+			env('DC',"${LDAP_ROOTDN}")
+			env('OU_GROUPS','ou=groups')
+			env('OU_PEOPLE','ou=people')
+			env('OUTPUT_FILE','output.ldif')
+			env('GITLAB_HTTP_URL',GITLAB_HTTP_URL)
+			env('GITLAB_HOST_NAME',GITLAB_HOST_NAME)
+			env('PLATFORM_GIT_REF',GIT_REF)
 		}
-		label("ldap")
-		wrappers {
-			preBuildCleanup()
-			injectPasswords()
-			maskPasswords()
-			environmentVariables {
-				env('DC',"${LDAP_ROOTDN}")
-				env('OU_GROUPS','ou=groups')
-				env('OU_PEOPLE','ou=people')
-				env('OUTPUT_FILE','output.ldif')
-				env('GITLAB_HTTP_URL',GITLAB_HTTP_URL)
-				env('GITLAB_HOST_NAME',GITLAB_HOST_NAME)
-				env('PLATFORM_GIT_REF',GIT_REF)
-			}
-			credentialsBinding {
-				usernamePassword("LDAP_ADMIN_USER", "LDAP_ADMIN_PASSWORD", "adop-ldap-admin")
-			}
+		credentialsBinding {
+			usernamePassword("LDAP_ADMIN_USER", "LDAP_ADMIN_PASSWORD", "adop-ldap-admin")
 		}
-		configure { project ->
-			project / 'buildWrappers' / 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' / 'bindings' / 'org.jenkinsci.plugins.credentialsbinding.impl.StringBinding' {
-			    'credentialsId'('gitlab-secrets-id')
-				'variable'('GITLAB_TOKEN')
-			}
+	}
+	configure { project ->
+		project / 'buildWrappers' / 'org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper' / 'bindings' / 'org.jenkinsci.plugins.credentialsbinding.impl.StringBinding' {
+			'credentialsId'('gitlab-secrets-id')
+			'variable'('GITLAB_TOKEN')
 		}
-		scm {
-			git {
-				remote {
-						url(platformToolsGitURL)
-						credentials("adop-jenkins-master")
-				}	
-				branch("*/${GIT_REF}")
-			}
+	}
+	scm {
+		git {
+			remote {
+					url(platformToolsGitURL)
+					credentials("adop-jenkins-master")
+			}	
+			branch("*/${GIT_REF}")
 		}
-		steps {
-				shell('''#!/bin/bash
-					# Validate Variables
-					pattern=" |'"
-					if [[ "${WORKSPACE_NAME}" =~ ${pattern} ]]; then
-						echo "WORKSPACE_NAME contains a space, please replace with an underscore - exiting..."
-						exit 1
-					fi
-				''')
-				shell('''
+	}
+	steps {
+		shell('''#!/bin/bash
+			# Validate Variables
+			pattern=" |'"
+			if [[ "${WORKSPACE_NAME}" =~ ${pattern} ]]; then
+				echo "WORKSPACE_NAME contains a space, please replace with an underscore - exiting..."
+				exit 1
+			fi
+		''')
+		shell('''
 # LDAP
 chmod +x $(find . -type f -name "*.sh")
 
@@ -75,10 +75,8 @@ VIEWER_USERS=$(echo ${VIEWER_USERS} | tr ',' ' ')
 # GitLab
 
 # install jq
-${WORKSPACE}/common/utils/install_jq.sh
-export PATH="$PATH:/usr/local/bin"
-
-export PATH="$PATH:/usr/local/bin/"
+sh ${WORKSPACE}/common/utils/install_jq.sh
+export PATH="$PATH:$HOME/bin"
 
 for user in $ADMIN_USERS $DEVELOPER_USERS $VIEWER_USERS
 do
@@ -127,12 +125,13 @@ if [[ ! -z $VIEWER_USERS ]]; then
   done
 fi
 ''')
-				dsl {
-					external("workspaces/jobs/**/*.groovy")
-				}
-				systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_admin.groovy')
-				systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_developer.groovy')
-				systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_viewer.groovy')
+		dsl {
+			external("workspaces/jobs/**/*.groovy")
+			ignoreExisting(false)
 		}
+		systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_admin.groovy')
+		systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_developer.groovy')
+		systemGroovyScriptFile('${WORKSPACE}/workspaces/groovy/acl_viewer.groovy')
+	}
 }
 
