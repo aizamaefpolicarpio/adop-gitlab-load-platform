@@ -113,7 +113,7 @@ if [[ ! -z $ADMIN_USERS ]]; then
   do
       USERNAME=$(echo ${user} | cut -d'@' -f1)
       USER_ID=$(curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HTTP_URL}/api/v4/users?username=${USERNAME}" | jq '.[0].id')
-      ${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -i "${GITLAB_GROUP_ID}" -u "${USER_ID}" -a 50
+      ${WORKSPACE}/common/gitlab/group/add_user_to_group.sh -g ${GITLAB_HTTP_URL}/ -t "${GITLAB_TOKEN}" -i "${GITLAB_GROUP_ID}" -u "${USER_ID}" -a 40
   done
 fi
 
